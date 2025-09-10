@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Forecast</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-image: url('https://images.unsplash.com/photo-1499346030926-9a72daac6c63?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            position: relative;
+        }
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.5); /* Semi-transparent white overlay for readability */
+            z-index: 0;
+        }
+        .container {
+            position: relative;
+            z-index: 1; /* Ensure content is above the overlay */
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center">
+    <div class="container mx-auto p-4">
+        <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">Weather Forecast </h1>
+        <div class="flex justify-center mb-4">
+            <input type="text" id="cityInput" placeholder="Enter city name" class="p-2 border rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            <button id="getForecast" class="bg-blue-500 text-white p-2 rounded-r-md hover:bg-blue-600">Get Forecast</button>
+        </div>
+        <div id="error" class="text-red-500 text-center hidden"></div>
+        <div id="forecast" class="grid grid-cols-1 md:grid-cols-5 gap-4"></div>
+    </div>
+    <script>
+        const apiKey = '0dba409996e0dc8e7794c3d1fc3e8f48';
+        const forecastDiv = document.getElementById('forecast');
+        const cityInput = document.getElementById('cityInput');
+        const getForecastBtn = document.getElementById('getForecast');
+        const errorDiv = document.getElementById('error');
+
+        getForecastBtn.addEventListener('click', () => {
+            const city = cityInput.value.trim();
+            if (city) {
+                fetchWeather(city);
+            } else {
+                showError('Please enter a city name');
+            }
+        });
+
+        async function fetchWeather(city) {
+            try {
+                const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${city}&limit=1&appid=${apiKey}`;
+                const geoResponse = await fetch(geoUrl);
+                const geoData = await geoResponse.json();
+
+                if (geoData.length === 0) {
+                    showError('City not found');
+                    return;
+                }
+
+                const { lat, lon } = geoData[0];
+                const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}`;
+                const forecastResponse = await fetch(forecastUrl);
+                const forecastData = await forecastResponse.json();
+
+                displayForecast(forecastData);
+            } catch (error) {
+                showError('Error fetching weather data');
+                console.error(error);
+            }
+        }
+
+        function showError(message) {
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+            forecastDiv.innerHTML = '';
+        }
+
+        function displayForecast(data) {
+            errorDiv.classList.add('hidden');
+            forecastDiv.innerHTML = '';
+            const dailyForecasts = {};
+            data.list.forEach(item => {
+                const date = new Date(item.dt * 1000).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                if (!dailyForecasts[date]) {
+                    dailyForecasts[date] = [];
+                }
+                dailyForecasts[date].push(item);
+            });
+
+            const fiveDays = Object.keys(dailyForecasts).slice(0, 5);
+            fiveDays.forEach(date => {
+                const dayData = dailyForecasts[date].find(item => {
+                    const hour = new Date(item.dt * 1000).getHours();
+                    return hour >= 12 && hour <= 15;
+                }) || dailyForecasts[date][0];
+
+                const temp = Math.round(dayData.main.temp);
+                const description = dayData.weather[0].description;
+                const icon = dayData.weather[0].icon;
+
+                const card = document.createElement('div');
+                card.className = 'bg-white bg-opacity-90 p-4 rounded-lg shadow-md text-center'; // Added bg-opacity-90 for better contrast
+                card.innerHTML = `
+                    <h2 class="text-xl font-semibold">${date}</h2>
+                    <img src="https://openweathermap.org/img/wn/${icon}.png" alt="${description}" class="mx-auto">
+                    <p class="text-lg">${temp}°C</p>
+                    <p class="capitalize">${description}</p>
+                `;
+                forecastDiv.appendChild(card);
+            });
+        }
+    </script>
+</body>
+</html>
